@@ -93,6 +93,7 @@ void UPlunObject::GoalComplete(bool Result)
 			GoalObjects[IndexComplete]->OnGoalComplete.AddDynamic(this, &UPlunObject::GoalComplete);
 			if (GoalObjects[IndexComplete]->StartEvent)
 			{
+				GoalObjects[IndexComplete]->StartEvent = false;
 				GoalObjects[IndexComplete]->StartTaskFunction(PlunInfoActorComponent);
 			}
 			else
