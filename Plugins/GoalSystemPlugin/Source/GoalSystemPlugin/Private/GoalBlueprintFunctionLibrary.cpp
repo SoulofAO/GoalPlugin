@@ -7,5 +7,6 @@
 
 UPlunObject* UGoalBlueprintFunctionLibrary::GetOptimalPlunInstance(UInfoActorComponent* Component, TSubclassOf<UGoalObject> GoalClass)
 {
-	return GoalClass.GetDefaultObject()->GetOptimalPlunInstance(Component);
+	UGoalObject* MainGoalObject = NewObject<UGoalObject>(Component,GoalClass);
+	return MainGoalObject->GetOptimalPlunInstance(Component);
 }

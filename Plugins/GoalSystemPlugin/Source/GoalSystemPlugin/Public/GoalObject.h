@@ -42,7 +42,7 @@ struct FChildGoalStruct
 	TSubclassOf<UGoalObject> TaskObject;
 
 	UPROPERTY(EditDefaultsOnly)
-	TSubclassOf<UCalculateCostObject> CalculateCostObject;
+	TArray<TSubclassOf<UCalculateCostObject>> CalculateCostObject;
 
 };
 
@@ -75,6 +75,7 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void PlayGoal(UInfoActorComponent* InfoActorComponent);
 
+	UFUNCTION()
 	void GoalComplete(bool Result);
 };
 
@@ -83,6 +84,7 @@ class GOALSYSTEMPLUGIN_API UGoalObject : public UObject
 {
 	GENERATED_BODY()
 public:
+	virtual UWorld* GetWorld() const;
 //Core
 	UPROPERTY(EditDefaultsOnly)
 	TArray<FChildGoalStruct> ChildGoalStructs;
@@ -91,13 +93,19 @@ public:
 	TSubclassOf<UCheckActualTaskObject> CheckActualObject;
 
 	UFUNCTION(BlueprintNativeEvent)
-	void BaseTaskFunction(UInfoActorComponent* Component);
+	void StartTaskFunction(UInfoActorComponent* Component);
+
+	UFUNCTION(BlueprintNativeEvent)
+	void EndTaskFunction(UInfoActorComponent* Component);
 
 	UPROPERTY(EditDefaultsOnly)
 	EOperationType OperationType;
 
-	UPROPERTY(BlueprintAssignable)
+	UPROPERTY(BlueprintCallable, BlueprintReadWrite, EditDefaultsOnly)
 	FGoalCompleteDelegate OnGoalComplete;
+
+	UPROPERTY()
+	bool StartEvent = true;
 
 //Control
 

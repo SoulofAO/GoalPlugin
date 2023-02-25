@@ -3,16 +3,28 @@
 
 #include "GoalObject.h"
 
-void UGoalObject::BaseTaskFunction_Implementation(UInfoActorComponent* Component)
+void UGoalObject::StartTaskFunction_Implementation(UInfoActorComponent* Component)
 {
-	GEngine->AddOnScreenDebugMessage(-1, 3, FColor::Black, "NoImplementEventInGoal");
+	OnGoalComplete.Broadcast(true);
 }
 
+
+void UGoalObject::EndTaskFunction_Implementation(UInfoActorComponent* Component)
+{
+	OnGoalComplete.Broadcast(true);
+}
+
+UWorld* UGoalObject::GetWorld() const
+{
+	if (GIsEditor && !GIsPlayInEditorWorld) return nullptr;
+	else if (GetOuter()) return GetOuter()->GetWorld();
+	else return nullptr;
+}
 
 UPlunObject* UGoalObject::GetOptimalPlunInstance(UInfoActorComponent* Component)
 {
 	UPlunObject* PlunObject = NewObject<UPlunObject>(Component);
-	GetOptimalGoals(Component);
+	PlunObject->GoalObjects = GetOptimalGoals(Component);
 	return PlunObject;
 }
 
@@ -21,13 +33,13 @@ TArray<UGoalObject*> UGoalObject::GetOptimalGoals(UInfoActorComponent* Component
 	TArray<UGoalObject*> GoalObjects;
 	if (OperationType == EOperationType::And)
 	{
+		GoalObjects.Add(this);
 		for (FChildGoalStruct ChildGoalStruct : ChildGoalStructs)
 		{
 			UGoalObject* LocalGoalObject = NewObject<UGoalObject>(Component, ChildGoalStruct.TaskObject);
 			GoalObjects.Append(LocalGoalObject->GetOptimalGoals(Component));
-			GoalObjects.Add(this);
-			
 		}
+		GoalObjects.Add(this);
 	}
 	else
 	{
@@ -36,7 +48,12 @@ TArray<UGoalObject*> UGoalObject::GetOptimalGoals(UInfoActorComponent* Component
 
 		for (FChildGoalStruct ChildGoalStruct : ChildGoalStructs)
 		{
-			float LocalCost = ChildGoalStruct.CalculateCostObject.GetDefaultObject()->CalculateCostTask(Component);
+			float LocalCost = 0;
+
+			for (TSubclassOf <UCalculateCostObject> CalculateObject : ChildGoalStruct.CalculateCostObject)
+			{
+				LocalCost = LocalCost + CalculateObject.GetDefaultObject()->CalculateCostTask(Component);
+			}
 
 			if (LocalCost < Cost)
 			{
@@ -44,8 +61,13 @@ TArray<UGoalObject*> UGoalObject::GetOptimalGoals(UInfoActorComponent* Component
 				Cost = LocalCost;
 			}
 		}
-		UGoalObject* LocalGoalObject = NewObject<UGoalObject>(Component, OptimalChildGoalStruct.TaskObject);
-		GoalObjects.Append(LocalGoalObject->GetOptimalGoals(Component));
+		
+		GoalObjects.Add(this);
+		if (OptimalChildGoalStruct.TaskObject)
+		{
+			UGoalObject* LocalGoalObject = NewObject<UGoalObject>(Component, OptimalChildGoalStruct.TaskObject);
+			GoalObjects.Append(LocalGoalObject->GetOptimalGoals(Component));
+		}
 		GoalObjects.Add(this);
 	}
 
@@ -57,7 +79,7 @@ void UPlunObject::PlayGoal(UInfoActorComponent* InfoActorComponent)
 	PlunInfoActorComponent = InfoActorComponent;
 	IndexComplete = 0;
 	GoalObjects[IndexComplete]->OnGoalComplete.AddDynamic(this, &UPlunObject::GoalComplete);
-	GoalObjects[IndexComplete]->BaseTaskFunction(InfoActorComponent);
+	GoalObjects[IndexComplete]->StartTaskFunction(InfoActorComponent);
 }
 
 void UPlunObject::GoalComplete(bool Result)
@@ -69,7 +91,14 @@ void UPlunObject::GoalComplete(bool Result)
 		if (GoalObjects.IsValidIndex(IndexComplete))
 		{
 			GoalObjects[IndexComplete]->OnGoalComplete.AddDynamic(this, &UPlunObject::GoalComplete);
-			GoalObjects[IndexComplete]->BaseTaskFunction(PlunInfoActorComponent);
+			if (GoalObjects[IndexComplete]->StartEvent)
+			{
+				GoalObjects[IndexComplete]->StartTaskFunction(PlunInfoActorComponent);
+			}
+			else
+			{
+				GoalObjects[IndexComplete]->EndTaskFunction(PlunInfoActorComponent);
+			}
 		}
 		else
 		{
